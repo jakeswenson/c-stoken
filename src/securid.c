@@ -766,6 +766,17 @@ int securid_check_devid(struct securid_token *t, const char *devid)
 		return ERR_NONE;
 }
 
+void print_hex(void* data, int len) {
+	int i;
+	unsigned char* buf = (unsigned char*)data;
+	for (i = 0; i < len; i++)
+	{
+		if (i > 0) printf(":");
+		printf("%02X", buf[i]);
+	}
+	printf("\n");
+}
+
 void securid_compute_tokencode(struct securid_token *t, time_t now,
 			       char *code_out)
 {
@@ -785,6 +796,10 @@ void securid_compute_tokencode(struct securid_token *t, time_t now,
 	bcd_write(&bcd_time[5], gmt.tm_min & ~(is_30 ? 0x01 : 0x03), 1);
 	bcd_time[6] = bcd_time[7] = 0;
 
+	printf("minute: %d masked: %d\n", gmt.tm_min, gmt.tm_min & ~(is_30 ? 0x01 : 0x03));
+	printf("bcd_time: ");
+	print_hex(bcd_time, 8);
+
 	key_from_time(bcd_time, 2, t->serial, key0);
 	stc_aes128_ecb_encrypt(t->dec_seed, key0, key0);
 	key_from_time(bcd_time, 3, t->serial, key1);
@@ -802,8 +817,14 @@ void securid_compute_tokencode(struct securid_token *t, time_t now,
 	else
 		i = (gmt.tm_min & 0x03) << 2;
 
+	printf("index: %d (is_30: %d) \n", i, is_30);
+
 	tokencode = (key0[i + 0] << 24) | (key0[i + 1] << 16) |
 		    (key0[i + 2] << 8)  | (key0[i + 3] << 0);
+
+	printf("key: ");
+	print_hex(&key0[i], 4);
+	printf("token: %X\n", tokencode);
 
 	/* populate code_out backwards, adding PIN digits if available */
 	j = ((t->flags & FLD_DIGIT_MASK) >> FLD_DIGIT_SHIFT) + 1;
